@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <style>
+      body {
+        font-family: 'Segoe UI', sans-serif;
+        background: #1e272e;
+        color: white;
+        padding: 20px;
+      }
+      h2 {
+        margin-top: 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      #addBtn {
+        background: #0984e3;
+        color: white;
+        border: none;
+        padding: 10px 15px;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 14px;
+      }
+      #addBtn:hover {
+        background: #74b9ff;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+        gap: 15px;
+        margin-top: 20px;
+      }
+
+      .note-card {
+        background: #2d3436;
+        height: 110px;
+        border-radius: 12px;
+        padding: 15px;
+        cursor: pointer;
+        position: relative;
+        transition: transform 0.2s, box-shadow 0.2s;
+        border: 1px solid #444;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+      }
+      .note-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        border-color: #74b9ff;
+      }
+
+      .note-title {
+        font-weight: bold;
+        font-size: 14px;
+        color: white;
+        margin-bottom: 5px;
+        /* Truncate text with ellipsis (...) */
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .note-preview {
+        font-size: 12px;
+        color: #b2bec3;
+        flex: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        line-clamp: 2;
+        -webkit-box-orient: vertical;
+      }
+
+      .note-date {
+        font-size: 10px;
+        color: #636e72;
+        text-align: right;
+        margin-top: 10px;
+      }
+
+      .delete-x {
+        position: absolute;
+        top: -8px;
+        right: -8px;
+        background: #ff7675;
+        color: white;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        text-align: center;
+        line-height: 18px;
+        font-size: 12px;
+        opacity: 0;
+        transition: 0.2s;
+        border: 2px solid #1e272e;
+      }
+      .note-card:hover .delete-x {
+        opacity: 1;
+      }
+    </style>
+  </head>
+  <body>
+    <h2>
+      My Notes
+      <button id="addBtn">+ New Note</button>
+    </h2>
+    <div class="grid" id="grid"></div>
+
+    <script>
+      const grid = document.getElementById('grid');
+
+      // 1. Request notes on load
+      window.api.requestNotes();
+
+      // 2. Listen for updates to populate the grid
+      window.api.onRefreshManager((event, notes) => {
+        const grid = document.getElementById('grid');
+        grid.innerHTML = '';
+
+        // Sort by newest first
+        notes.sort((a, b) => (b.lastModified || 0) - (a.lastModified || 0));
+
+        notes.forEach((note) => {
+          const card = document.createElement('div');
+          card.className = 'note-card';
+          card.style.borderLeft = `6px solid ${note.color}`;
+
+          // Title extraction logic
+          const temp = document.createElement('div');
+          temp.innerHTML = note.content;
+          const fullText = temp.innerText || '';
+          const lines = fullText
+            .split('\n')
+            .filter((line) => line.trim() !== '');
+
+          const titleText = lines.length > 0 ? lines[0] : 'Untitled Note';
+          const bodyText =
+            lines.length > 1 ? lines.slice(1).join(' ') : 'No additional text';
+
+          // Date formatting
+          const dateObj = note.lastModified
+            ? new Date(note.lastModified)
+            : new Date();
+          const dateStr = dateObj.toLocaleDateString(undefined, {
+            month: 'short',
+            day: 'numeric',
+          });
+
+          card.innerHTML = `
+        <div class="note-title">${titleText}</div>
+        <div class="note-preview">${bodyText}</div>
+        <div class="note-date">${dateStr}</div>
+      `;
+
+          card.onclick = () => window.api.openNote(note.id);
+
+          const del = document.createElement('span');
+          del.className = 'delete-x';
+          del.innerText = '×';
+          del.onclick = (e) => {
+            e.stopPropagation();
+            if (confirm('Delete this note?')) window.api.deleteNote(note.id);
+          };
+
+          card.appendChild(del);
+          grid.appendChild(card);
+        });
+      });
+
+      // 3. Hook up the "New Note" button
+      document.getElementById('addBtn').onclick = () => {
+        window.api.createNewNote();
+      };
+    </script>
+  </body>
+</html>

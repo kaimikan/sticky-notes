@@ -1,6 +1,10 @@
 <!DOCTYPE html>
 <html>
   <head>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+    />
     <style>
       body {
         margin: 0;
@@ -9,105 +13,328 @@
         display: flex;
         flex-direction: column;
         font-family: 'Segoe UI', sans-serif;
+        color: #dfe6e9; /* Light grey text */
       }
-
-      /* The Note Container */
       .note {
-        background-color: #fff740; /* Classic Yellow */
         flex: 1;
         display: flex;
         flex-direction: column;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-        border-radius: 5px; /* Rounded corners */
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+        border-radius: 8px;
+        overflow: hidden;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+      .drag-header {
+        height: 15px;
+        cursor: grab;
+        -webkit-app-region: drag;
+      }
+
+      .toolbar {
+        padding: 5px;
+        background: rgba(0, 0, 0, 0.2);
+        -webkit-app-region: no-drag;
+        transition: max-height 0.3s ease-out;
         overflow: hidden;
       }
 
-      /* The Drag Bar / Toolbar */
-      .toolbar {
-        height: 30px;
-        background-color: #efe120;
+      .row {
+        width: 100%;
         display: flex;
         justify-content: space-between;
+        margin-bottom: 5px;
         align-items: center;
-        padding: 0 10px;
-        /* THIS IS KEY: Allows moving the frameless window */
-        -webkit-app-region: drag;
-        user-select: none;
       }
 
-      .actions button {
-        -webkit-app-region: no-drag; /* Buttons must be clickable */
+      button,
+      select {
         border: none;
         background: none;
         cursor: pointer;
-        font-weight: bold;
         padding: 5px;
+        border-radius: 4px;
+        color: #b2bec3;
+        transition: 0.2s;
+      }
+      button:hover {
+        background-color: rgba(255, 255, 255, 0.1);
+        color: white;
       }
 
-      .actions button:hover {
-        background-color: rgba(0, 0, 0, 0.1);
-        border-radius: 3px;
+      .color-dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        display: inline-block;
+        margin: 0 2px;
+        cursor: pointer;
+        border: 1px solid rgba(255, 255, 255, 0.3);
       }
 
-      /* The Text Area */
       .editor {
         flex: 1;
         padding: 15px;
         outline: none;
         overflow-y: auto;
         font-size: 16px;
-        line-height: 1.5;
+        line-height: 1.6;
       }
 
-      .pinned {
-        color: red; /* Visual indicator for pinned state */
+      /* Scrollbar styling for dark mode */
+      ::-webkit-scrollbar {
+        width: 8px;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #636e72;
+        border-radius: 4px;
+      }
+
+      .pinned-active {
+        color: #0984e3;
+        transform: rotate(45deg);
+      }
+
+      /* Toggle Class for Read Mode */
+      .hidden-tools {
+        display: none;
+      }
+
+      input[type='checkbox'] {
+        vertical-align: middle;
+        position: relative;
+        bottom: 1px;
       }
     </style>
   </head>
   <body>
-    <div class="note">
+    <div class="note" id="noteContainer">
+      <div class="drag-header" id="dragHeader"></div>
+
       <div class="toolbar">
-        <div class="actions">
-          <button id="addBtn">+</button>
+        <div class="row">
+          <div style="display: flex; align-items: center">
+            <button onclick="toggleTools()" title="Toggle Read/Edit Mode">
+              <i class="fas fa-pen-to-square"></i>
+            </button>
+
+            <div id="color-picker" style="margin-left: 10px">
+              <span
+                class="color-dot"
+                style="background: #2d3436"
+                onclick="setColor('#2d3436')"
+              ></span>
+              <span
+                class="color-dot"
+                style="background: #192a56"
+                onclick="setColor('#192a56')"
+              ></span>
+              <span
+                class="color-dot"
+                style="background: #2c041d"
+                onclick="setColor('#2c041d')"
+              ></span>
+              <span
+                class="color-dot"
+                style="background: #053d28"
+                onclick="setColor('#053d28')"
+              ></span>
+              <span
+                class="color-dot"
+                style="background: #630e1d"
+                onclick="setColor('#630e1d')"
+              ></span>
+            </div>
+          </div>
+
+          <div>
+            <select
+              onchange="window.api.resizeWindow(this.value)"
+              style="color: #b2bec3; background: #2d3436"
+            >
+              <option disabled selected>-</option>
+              <option value="small">S</option>
+              <option value="medium">M</option>
+              <option value="large">L</option>
+            </select>
+            <button id="pinBtn"><i class="fas fa-thumbtack"></i></button>
+            <button onclick="window.api.minimizeWindow()">
+              <i class="fas fa-minus"></i>
+            </button>
+            <button onclick="window.api.closeWindow()" style="color: #ff7675">
+              <i class="fas fa-times"></i>
+            </button>
+          </div>
         </div>
-        <div class="actions">
-          <button onclick="document.execCommand('bold')"><b>B</b></button>
-          <button onclick="document.execCommand('italic')"><i>I</i></button>
-          <button id="pinBtn" title="Pin on top">📌</button>
-          <button id="closeBtn">✕</button>
+
+        <div
+          class="row"
+          id="format-tools"
+          style="
+            justify-content: flex-start;
+            gap: 5px;
+            padding-top: 5px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+          "
+        >
+          <button onclick="fmt('bold')"><i class="fas fa-bold"></i></button>
+          <button onclick="fmt('italic')"><i class="fas fa-italic"></i></button>
+          <button onclick="fmt('insertUnorderedList')">
+            <i class="fas fa-list-ul"></i>
+          </button>
+          <button onclick="insertCheckbox()">
+            <i class="fas fa-check-square"></i>
+          </button>
+          <span style="border-left: 1px solid #555; margin: 0 2px"></span>
+          <button onclick="fmt('justifyLeft')">
+            <i class="fas fa-align-left"></i>
+          </button>
+          <button onclick="fmt('justifyCenter')">
+            <i class="fas fa-align-center"></i>
+          </button>
+          <button onclick="fmt('fontSize', '5')">
+            <i class="fas fa-lg">A</i>
+          </button>
+          <button onclick="fmt('fontSize', '3')">
+            <i class="fas fa-sm">A</i>
+          </button>
         </div>
       </div>
 
       <div
         class="editor"
+        id="editor"
         contenteditable="true"
-        placeholder="Take a note..."
+        spellcheck="false"
       ></div>
     </div>
 
     <script>
-      // Button Logic
-      document.getElementById('addBtn').addEventListener('click', () => {
-        window.electronAPI.createNewNote();
+      let noteId = null;
+      let currentColor = '#2d3436';
+      let isPinned = false;
+
+      // UI Toggles
+      function toggleTools() {
+        const tools = document.getElementById('format-tools');
+        const colors = document.getElementById('color-picker');
+
+        if (tools.classList.contains('hidden-tools')) {
+          tools.classList.remove('hidden-tools');
+          colors.style.display = 'inline-block';
+        } else {
+          tools.classList.add('hidden-tools');
+          colors.style.display = 'none';
+        }
+      }
+
+      function fmt(command, value = null) {
+        document.execCommand(command, false, value);
+        save();
+      }
+
+      // 1. Smart Checkbox Function
+      function insertCheckbox() {
+        const selection = window.getSelection();
+        if (!selection.rangeCount) return;
+
+        const range = selection.getRangeAt(0);
+        const selectedText = selection.toString();
+
+        // Checkbox HTML
+        const cbHtml =
+          '<input type="checkbox" style="accent-color: #0984e3; margin-right:8px; transform: scale(1.2); cursor: pointer;">';
+
+        if (selectedText.length > 0) {
+          // BULK MODE: If text is selected, split by newlines and add checkbox to each
+          // We wrap in <div>s to ensure structure
+          const lines = selectedText.split('\n');
+          const newHtml = lines
+            .map((line) => `<div>${cbHtml}${line}</div>`)
+            .join('');
+          document.execCommand('insertHTML', false, newHtml);
+        } else {
+          // SINGLE MODE: Just insert one
+          document.execCommand('insertHTML', false, cbHtml + '&nbsp;');
+        }
+        save();
+      }
+
+      // 2. "Enter" Key Logic (Auto-continue list)
+      document.getElementById('editor').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          // Get the current line/block
+          const selection = window.getSelection();
+          const anchorNode = selection.anchorNode;
+
+          // We need to find the parent container of the cursor
+          let currentElement =
+            anchorNode.nodeType === 3 ? anchorNode.parentNode : anchorNode;
+
+          // Check if the current line contains a checkbox input
+          const hasCheckbox =
+            currentElement.querySelector('input[type="checkbox"]') ||
+            (currentElement.previousSibling &&
+              currentElement.previousSibling.type === 'checkbox');
+
+          // If we are in a checklist line
+          if (
+            hasCheckbox ||
+            currentElement.innerHTML.includes('type="checkbox"')
+          ) {
+            // Let the browser create the new line (default behavior)
+            // Then immediately inject a checkbox
+            setTimeout(() => {
+              document.execCommand(
+                'insertHTML',
+                false,
+                '<input type="checkbox" style="accent-color: #0984e3; margin-right:8px; transform: scale(1.2); cursor: pointer;">&nbsp;'
+              );
+            }, 10); // Tiny delay to let the newline happen first
+          }
+        }
       });
 
-      document.getElementById('closeBtn').addEventListener('click', () => {
-        window.electronAPI.closeNote();
-      });
+      function setColor(color) {
+        currentColor = color;
+        document.getElementById('noteContainer').style.backgroundColor = color;
+        document.getElementById('dragHeader').style.backgroundColor = color;
+        save();
+      }
+
+      let timeout;
+      function save() {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => {
+          const content = document.getElementById('editor').innerHTML;
+          // Add lastModified timestamp
+          window.api.saveNote({
+            id: noteId,
+            content,
+            color: currentColor,
+            isPinned,
+            lastModified: Date.now(),
+          });
+        }, 500);
+      }
+
+      document.getElementById('editor').addEventListener('input', save);
 
       const pinBtn = document.getElementById('pinBtn');
-      pinBtn.addEventListener('click', () => {
-        window.electronAPI.togglePin();
+      pinBtn.addEventListener('click', () => window.api.togglePin());
+
+      window.api.onPinUpdated((event, status) => {
+        isPinned = status;
+        pinBtn.classList.toggle('pinned-active', status);
+        save();
       });
 
-      // Listen for pin status changes to update UI
-      window.electronAPI.onPinStatus((event, isPinned) => {
-        if (isPinned) {
-          pinBtn.classList.add('pinned');
-          pinBtn.style.transform = 'rotate(45deg)';
-        } else {
-          pinBtn.classList.remove('pinned');
-          pinBtn.style.transform = 'rotate(0deg)';
+      window.api.onLoadData((event, data) => {
+        noteId = data.id;
+        document.getElementById('editor').innerHTML = data.content;
+        if (data.color) setColor(data.color);
+        if (data.isPinned) {
+          isPinned = true;
+          pinBtn.classList.add('pinned-active');
         }
       });
     </script>
