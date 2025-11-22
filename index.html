@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <style>
+      body {
+        margin: 0;
+        background: transparent;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        font-family: 'Segoe UI', sans-serif;
+      }
+
+      /* The Note Container */
+      .note {
+        background-color: #fff740; /* Classic Yellow */
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        border-radius: 5px; /* Rounded corners */
+        overflow: hidden;
+      }
+
+      /* The Drag Bar / Toolbar */
+      .toolbar {
+        height: 30px;
+        background-color: #efe120;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0 10px;
+        /* THIS IS KEY: Allows moving the frameless window */
+        -webkit-app-region: drag;
+        user-select: none;
+      }
+
+      .actions button {
+        -webkit-app-region: no-drag; /* Buttons must be clickable */
+        border: none;
+        background: none;
+        cursor: pointer;
+        font-weight: bold;
+        padding: 5px;
+      }
+
+      .actions button:hover {
+        background-color: rgba(0, 0, 0, 0.1);
+        border-radius: 3px;
+      }
+
+      /* The Text Area */
+      .editor {
+        flex: 1;
+        padding: 15px;
+        outline: none;
+        overflow-y: auto;
+        font-size: 16px;
+        line-height: 1.5;
+      }
+
+      .pinned {
+        color: red; /* Visual indicator for pinned state */
+      }
+    </style>
+  </head>
+  <body>
+    <div class="note">
+      <div class="toolbar">
+        <div class="actions">
+          <button id="addBtn">+</button>
+        </div>
+        <div class="actions">
+          <button onclick="document.execCommand('bold')"><b>B</b></button>
+          <button onclick="document.execCommand('italic')"><i>I</i></button>
+          <button id="pinBtn" title="Pin on top">📌</button>
+          <button id="closeBtn">✕</button>
+        </div>
+      </div>
+
+      <div
+        class="editor"
+        contenteditable="true"
+        placeholder="Take a note..."
+      ></div>
+    </div>
+
+    <script>
+      // Button Logic
+      document.getElementById('addBtn').addEventListener('click', () => {
+        window.electronAPI.createNewNote();
+      });
+
+      document.getElementById('closeBtn').addEventListener('click', () => {
+        window.electronAPI.closeNote();
+      });
+
+      const pinBtn = document.getElementById('pinBtn');
+      pinBtn.addEventListener('click', () => {
+        window.electronAPI.togglePin();
+      });
+
+      // Listen for pin status changes to update UI
+      window.electronAPI.onPinStatus((event, isPinned) => {
+        if (isPinned) {
+          pinBtn.classList.add('pinned');
+          pinBtn.style.transform = 'rotate(45deg)';
+        } else {
+          pinBtn.classList.remove('pinned');
+          pinBtn.style.transform = 'rotate(0deg)';
+        }
+      });
+    </script>
+  </body>
+</html>
